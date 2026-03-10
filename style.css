@@ -139,3 +139,94 @@ kbd {
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(125, 95, 255, 0.3);
 }
+
+/* 虛擬搖桿樣式 */
+#joystick-container {
+    /* 固定定位在螢幕左下角 */
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 100;
+    user-select: none;
+    touch-action: none;
+    /* 預設隱藏，由 .mobile-only 控制 */
+}
+
+#joystick-base {
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(0, 255, 136, 0.4);
+    border-radius: 50%;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 0 25px rgba(0, 255, 136, 0.15),
+        inset 0 0 15px rgba(0, 255, 136, 0.05);
+}
+
+#joystick-knob {
+    width: 50px;
+    height: 50px;
+    background: linear-gradient(135deg, var(--snake-head), var(--snake-body));
+    border-radius: 50%;
+    position: absolute;
+    cursor: pointer;
+    box-shadow: 0 0 15px rgba(0, 255, 136, 0.5),
+        0 2px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.08s ease-out;
+}
+
+/* 響應式：預設隱藏搖桿，螢幕較小時才顯示 */
+.mobile-only {
+    display: none !important;
+}
+
+/* ===== 手機版佈局 ===== */
+@media (max-width: 768px) {
+
+    /* 搖桿在手機版才顯示 */
+    .mobile-only {
+        display: block !important;
+    }
+
+    /* body 在手機版需要能捲動 */
+    body {
+        overflow: auto;
+        align-items: flex-start;
+        padding-top: 1rem;
+        padding-bottom: 160px;
+        /* 保留搖桿空間 */
+    }
+
+    /* 遊戲容器更緊湊 */
+    .game-container {
+        padding: 1rem 0.8rem;
+        border-radius: 12px;
+        width: 95%;
+    }
+
+    /* 標題縮小 */
+    h1 {
+        font-size: 1.5rem;
+        margin-bottom: 0.3rem;
+    }
+
+    /* 分數區域更緊湊 */
+    .stats {
+        margin-bottom: 0.5rem;
+    }
+
+    /* Canvas 依照螢幕寬度自適應，保持正方形 */
+    canvas {
+        width: 100%;
+        max-width: 400px;
+        aspect-ratio: 1 / 1;
+    }
+
+    /* 隱藏鍵盤操作提示 (手機不需要) */
+    .controls-hint {
+        display: none;
+    }
+}
