@@ -517,88 +517,40 @@ window.addEventListener('keydown', e => {
 });
 
 /**
- * 虛擬搖桿觸碰控制邏輯
+ * D-Pad 方向按鈕控制邏輯 (支援所有裝置)
  */
-const joystickBase = document.getElementById('joystick-base');
-const joystickKnob = document.getElementById('joystick-knob');
+const btnUp = document.getElementById('btn-up');
+const btnDown = document.getElementById('btn-down');
+const btnLeft = document.getElementById('btn-left');
+const btnRight = document.getElementById('btn-right');
 
-if (joystickBase && joystickKnob) {
-    let joystickActive = false;
-    let centerX, centerY;
-    const maxRadius = 40; // 搖桿移動的最大半徑
-
-    // 取得底座中心點位置
-    function updateCenter() {
-        const rect = joystickBase.getBoundingClientRect();
-        centerX = rect.left + rect.width / 2;
-        centerY = rect.top + rect.height / 2;
-    }
-
-    // 處理移動邏輯
-    function handleJoystickMove(touchX, touchY) {
+if (btnUp && btnDown && btnLeft && btnRight) {
+    // 統一處理方向變更
+    function handleDirection(newDx, newDy) {
         if (!gameActive) return;
 
-        const deltaX = touchX - centerX;
-        const deltaY = touchY - centerY;
-        const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+        // 防止反向回頭
+        if (newDx === 1 && dx === -1) return;
+        if (newDx === -1 && dx === 1) return;
+        if (newDy === 1 && dy === -1) return;
+        if (newDy === -1 && dy === 1) return;
 
-        // 限制搖桿頭移動範圍
-        const angle = Math.atan2(deltaY, deltaX);
-        const limitedDistance = Math.min(distance, maxRadius);
-
-        const moveX = Math.cos(angle) * limitedDistance;
-        const moveY = Math.sin(angle) * limitedDistance;
-
-        joystickKnob.style.transform = `translate(${moveX}px, ${moveY}px)`;
-
-        // 判斷方向 (至少移動一定距離才觸發)
-        if (distance > 15) {
-            const absX = Math.abs(deltaX);
-            const absY = Math.abs(deltaY);
-
-            if (absX > absY) {
-                // 水平移動
-                if (deltaX > 0 && dx !== -1) { // 向右
-                    dx = 1; dy = 0; isMoving = true;
-                } else if (deltaX < 0 && dx !== 1) { // 向左
-                    dx = -1; dy = 0; isMoving = true;
-                }
-            } else {
-                // 垂直移動
-                if (deltaY > 0 && dy !== -1) { // 向下
-                    dx = 0; dy = 1; isMoving = true;
-                } else if (deltaY < 0 && dy !== 1) { // 向上
-                    dx = 0; dy = -1; isMoving = true;
-                }
-            }
-        }
+        dx = newDx;
+        dy = newDy;
+        isMoving = true;
     }
 
-    // 搖桿歸位函式
-    function resetKnob() {
-        joystickActive = false;
-        joystickKnob.style.transform = 'translate(0, 0)';
-    }
+    // 監聽點擊與觸碰事件
+    btnUp.addEventListener('mousedown', e => { e.preventDefault(); handleDirection(0, -1); });
+    btnDown.addEventListener('mousedown', e => { e.preventDefault(); handleDirection(0, 1); });
+    btnLeft.addEventListener('mousedown', e => { e.preventDefault(); handleDirection(-1, 0); });
+    btnRight.addEventListener('mousedown', e => { e.preventDefault(); handleDirection(1, 0); });
 
-    joystickBase.addEventListener('touchstart', e => {
-        e.preventDefault(); // 防止觸發頁面滾動
-        joystickActive = true;
-        updateCenter();
-        handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY);
-    }, { passive: false });
-
-    window.addEventListener('touchmove', e => {
-        if (joystickActive) {
-            e.preventDefault(); // 在搖桿操作中防止頁面滾動
-            handleJoystickMove(e.touches[0].clientX, e.touches[0].clientY);
-        }
-    }, { passive: false });
-
-    window.addEventListener('touchend', resetKnob);
-    window.addEventListener('touchcancel', resetKnob); // 處理觸碰取消的邊界情況
-
-    // 視窗大小改變時更新中心點
-    window.addEventListener('resize', updateCenter);
+    // 支援行動裝置觸碰
+    btnUp.addEventListener('touchstart', e => { e.preventDefault(); handleDirection(0, -1); }, { passive: false });
+    btnDown.addEventListener('touchstart', e => { e.preventDefault(); handleDirection(0, 1); }, { passive: false });
+    btnLeft.addEventListener('touchstart', e => { e.preventDefault(); handleDirection(-1, 0); }, { passive: false });
+    btnRight.addEventListener('touchstart', e => { e.preventDefault(); handleDirection(1, 0); }, { passive: false });
 }
 
 

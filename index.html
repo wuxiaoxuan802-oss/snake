@@ -32,11 +32,14 @@
         </div>
     </div>
 
-    <!-- 手機版虛擬搖桿 (獨立於遊戲容器，固定定位於左下角) -->
-    <div id="joystick-container" class="mobile-only">
-        <div id="joystick-base">
-            <div id="joystick-knob"></div>
+    <!-- D-Pad 方向按鈕 (所有裝置皆可見，固定定位於左下角) -->
+    <div id="dpad-container">
+        <button id="btn-up" class="dpad-btn">↑</button>
+        <div class="dpad-middle-row">
+            <button id="btn-left" class="dpad-btn">←</button>
+            <button id="btn-right" class="dpad-btn">→</button>
         </div>
+        <button id="btn-down" class="dpad-btn">↓</button>
     </div>
 
     <!-- 遊戲結束畫面 -->
