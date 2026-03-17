@@ -27,13 +27,124 @@ let score = 0;
 let highScore = localStorage.getItem('snakeHighScore') || 0;
 let gameActive = false;
 let lastUpdateTime = 0;
-let speed = 7; // 每秒移動幾次 (越高越快)
+let speed = 5.5; // 每秒移動幾次 (越高越快)
 
 highScoreElement.textContent = highScore;
 
 let isMoving = false; // 紀錄蛇是否已經開始移動
 let snakeColor = '#00ff88'; // 預設顏色
 let snakeColorSecondary = '#00bcd4';
+
+// ===================================================
+//  音效系統 (Web Audio API 合成，無須外部音檔)
+// ===================================================
+let audioCtx = null;       // 全域 AudioContext
+let bgmIntervalId = null;  // 背景音樂的排程 ID
+let bgmNoteIndex = 0;      // 目前演奏到第幾個音符
+
+/**
+ * 【背景音樂】8-bit 風格的音符序列 (頻率 Hz)
+ * 使用 C 大調五聲音階，輕快活潑
+ */
+const BGM_NOTES = [
+    523, 659, 784, 659,   // C5 E5 G5 E5
+    523, 440, 392, 440,   // C5 A4 G4 A4
+    523, 659, 784, 880,   // C5 E5 G5 A5
+    784, 659, 523, 392    // G5 E5 C5 G4
+];
+
+/**
+ * 初始化 AudioContext (必須在使用者互動後呼叫，才能解除瀏覽器限制)
+ */
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+    }
+}
+
+/**
+ * 播放單一音符的輔助函式
+ * @param {number} frequency - 頻率 (Hz)
+ * @param {number} duration  - 持續時間 (秒)
+ * @param {string} type      - 振盪器類型 ('sine', 'square', 'sawtooth', 'triangle')
+ * @param {number} volume    - 音量 (0~1)
+ */
+function playNote(frequency, duration, type = 'square', volume = 0.15) {
+    if (!audioCtx) return;
+
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    osc.type = type;
+    osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+
+    // 音量包絡：快速起音，平滑衰減
+    gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration);
+}
+
+/**
+ * 開始播放背景音樂 (依據目前遊戲速度決定節奏快慢)
+ */
+function startBGM() {
+    stopBGM(); // 先停止舊的排程
+    bgmNoteIndex = 0;
+
+    // 每個音符的持續時間與速度成反比：速度越快，音符越短
+    function scheduleNextNote() {
+        if (!gameActive) return;
+
+        const noteDuration = Math.max(0.08, 0.25 - speed * 0.01); // 最短 80ms
+        const noteFreq = BGM_NOTES[bgmNoteIndex % BGM_NOTES.length];
+        playNote(noteFreq, noteDuration, 'square', 0.12);
+        bgmNoteIndex++;
+
+        // 用 setTimeout 排程下一個音符
+        bgmIntervalId = setTimeout(scheduleNextNote, noteDuration * 1000);
+    }
+
+    scheduleNextNote();
+}
+
+/**
+ * 停止背景音樂
+ */
+function stopBGM() {
+    if (bgmIntervalId !== null) {
+        clearTimeout(bgmIntervalId);
+        bgmIntervalId = null;
+    }
+}
+
+/**
+ * 播放音效
+ * @param {string} type - 'eat' 吃食物 | 'gameover' 遊戲結束
+ */
+function playSound(type) {
+    if (!audioCtx) return;
+
+    if (type === 'eat') {
+        // 吃食物音效：兩個快速上升的音符，清脆歡快
+        playNote(880, 0.08, 'sine', 0.35);
+        setTimeout(() => playNote(1320, 0.12, 'sine', 0.3), 80);
+
+    } else if (type === 'gameover') {
+        // Game Over 音效：三個遞減音符，帶有沉重感
+        stopBGM(); // 立刻停止背景音樂
+        playNote(400, 0.25, 'sawtooth', 0.4);
+        setTimeout(() => playNote(250, 0.3, 'sawtooth', 0.4), 250);
+        setTimeout(() => playNote(120, 0.5, 'sawtooth', 0.5), 500);
+    }
+}
 
 /**
  * 初始化或重置遊戲狀態
@@ -52,6 +163,7 @@ function resetGame() {
     dx = 0;
     dy = 0; // 預設不移動，等待按鍵
     isMoving = false;
+    speed = 5.5; // 重置遊戲時恢復初始速度
     score = 0;
     scoreElement.textContent = score;
     overlay.style.display = 'none';
@@ -61,6 +173,8 @@ function resetGame() {
     for (let i = 0; i < 3; i++) {
         generateFood();
     }
+
+    stopBGM(); // 確保舊的 BGM 排程已停止
 
     // 開始遊戲循環
     requestAnimationFrame(gameLoop);
@@ -143,6 +257,7 @@ function update() {
     const foodIndex = foods.findIndex(f => f.x === head.x && f.y === head.y);
 
     if (foodIndex !== -1) {
+        playSound('eat'); // 播放吃食物音效
         score += 10;
         scoreElement.textContent = score;
 
@@ -478,6 +593,7 @@ let lastMessageType = 'joke'; // 紀錄上次顯示的類型 ('joke' 或 'pickup
  * 遊戲結束處理
  */
 function gameOver() {
+    playSound('gameover'); // 播放死亡音效
     gameActive = false;
     if (score > highScore) {
         highScore = score;
@@ -516,6 +632,9 @@ function gameOver() {
  */
 window.addEventListener('keydown', e => {
     const key = e.key.toLowerCase();
+    initAudio(); // 在使用者按下按鍵時初始化音效，解除瀏覽器自動播放限制
+
+    const wasMoving = isMoving; // 記錄按下前是否已在移動
 
     // 防止反向回頭 (例如：向上時不能直接按向下)
     if ((key === 'arrowup' || key === 'w') && dy !== 1) {
@@ -526,6 +645,11 @@ window.addEventListener('keydown', e => {
         dx = -1; dy = 0; isMoving = true;
     } else if ((key === 'arrowright' || key === 'd') && dx !== -1) {
         dx = 1; dy = 0; isMoving = true;
+    }
+
+    // 若這是第一次按下方向鍵（遊戲剛開始），啟動背景音樂
+    if (!wasMoving && isMoving) {
+        startBGM();
     }
 });
 
@@ -540,6 +664,7 @@ const btnRight = document.getElementById('btn-right');
 if (btnUp && btnDown && btnLeft && btnRight) {
     // 統一處理方向變更
     function handleDirection(newDx, newDy) {
+        initAudio(); // 點擊螢幕按鈕時初始化音效
         if (!gameActive) return;
 
         // 防止反向回頭
@@ -548,9 +673,15 @@ if (btnUp && btnDown && btnLeft && btnRight) {
         if (newDy === 1 && dy === -1) return;
         if (newDy === -1 && dy === 1) return;
 
+        const wasMoving = isMoving;
         dx = newDx;
         dy = newDy;
         isMoving = true;
+
+        // 若這是第一次按下（遊戲剛開始），啟動背景音樂
+        if (!wasMoving) {
+            startBGM();
+        }
     }
 
     // 監聽點擊與觸碰事件
